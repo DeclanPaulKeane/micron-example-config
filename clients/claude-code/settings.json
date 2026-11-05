@@ -1,0 +1,14 @@
+{
+  "apiKeyHelper": "MICRON_USER=${MICRON_USER:-usera} python3 __REPO__/clients/okta_token.py",
+  "env": {
+    "ANTHROPIC_BASE_URL": "https://micron.kong-sales-engineering.com/anthropic",
+    "CLAUDE_CODE_API_KEY_HELPER_TTL_MS": "240000",
+    "ANTHROPIC_MODEL": "claude-sonnet-5-5",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-5-5",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-5-5",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-haiku-5-5",
+    "ANTHROPIC_SMALL_FAST_MODEL": "claude-haiku-5-5",
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+    "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS": "1"
+  }
+}

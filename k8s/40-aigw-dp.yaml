@@ -1,0 +1,61 @@
+# Kong AI Gateway data plane (hybrid, control plane in Konnect). Cert secret dp-cluster-cert is registered with the CP (scripts/..).
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: aigw-dp, namespace: micron-aigw}
+spec:
+  replicas: 2
+  selector: {matchLabels: {app: aigw-dp}}
+  template:
+    metadata: {labels: {app: aigw-dp}}
+    spec:
+      containers:
+      - name: kong
+        image: kong/kong-ai-gateway:2.2.0
+        env:
+        - {name: KONG_ROLE, value: data_plane}
+        - {name: KONG_DATABASE, value: "off"}
+        - {name: KONG_KONNECT_MODE, value: "on"}
+        - {name: KONG_VITALS, value: "off"}
+        - {name: KONG_CLUSTER_MTLS, value: pki}
+        - {name: KONG_CLUSTER_CONTROL_PLANE, value: "c316f5eb5d.us.cp.konghq.com:443"}
+        - {name: KONG_CLUSTER_SERVER_NAME, value: "c316f5eb5d.us.cp.konghq.com"}
+        - {name: KONG_CLUSTER_TELEMETRY_ENDPOINT, value: "c316f5eb5d.us.tp.konghq.com:443"}
+        - {name: KONG_CLUSTER_TELEMETRY_SERVER_NAME, value: "c316f5eb5d.us.tp.konghq.com"}
+        - {name: KONG_CLUSTER_CERT, value: /certs/tls.crt}
+        - {name: KONG_CLUSTER_CERT_KEY, value: /certs/tls.key}
+        - {name: KONG_LUA_SSL_TRUSTED_CERTIFICATE, value: system}
+        - {name: KONG_PROXY_LISTEN, value: "0.0.0.0:8000, 0.0.0.0:8443 ssl"}
+        - {name: KONG_STATUS_LISTEN, value: "0.0.0.0:8100"}
+        - {name: KONG_TRUSTED_IPS, value: "0.0.0.0/0,::/0"}
+        - {name: KONG_REAL_IP_HEADER, value: "X-Forwarded-For"}
+        - {name: KONG_PORT_MAPS, value: "443:8000"}
+        - {name: KONG_CUSTOM_PLUGIN_STREAMING_ENABLED, value: "on"}
+        - {name: KONG_NGINX_PROXY_CLIENT_MAX_BODY_SIZE, value: "64m"}
+        - {name: KONG_NGINX_PROXY_CLIENT_BODY_BUFFER_SIZE, value: "4m"}     # lets pre-functions read bodies up to 4 MB (get_body)
+        - {name: KONG_TRACING_INSTRUMENTATIONS, value: "request"}
+        envFrom: []
+        ports: [{containerPort: 8000}, {containerPort: 8100}]
+        readinessProbe: {httpGet: {path: /status/ready, port: 8100}, initialDelaySeconds: 10}
+        resources: {requests: {cpu: 100m, memory: 768Mi}, limits: {memory: 4Gi}}
+        volumeMounts: [{name: certs, mountPath: /certs, readOnly: true}]
+      volumes: [{name: certs, secret: {secretName: dp-cluster-cert}}]
+---
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata: {name: aigw-dp, namespace: micron-aigw}
+spec:
+  timeoutSec: 3600
+  connectionDraining: {drainingTimeoutSec: 60}
+  healthCheck: {type: HTTP, port: 8100, requestPath: /status/ready}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aigw-dp
+  namespace: micron-aigw
+  annotations:
+    cloud.google.com/neg: '{"ingress": true}'
+    cloud.google.com/backend-config: '{"default": "aigw-dp"}'
+spec:
+  selector: {app: aigw-dp}
+  ports: [{name: proxy, port: 80, targetPort: 8000}]

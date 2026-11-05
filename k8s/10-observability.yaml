@@ -1,0 +1,244 @@
+# Small single-namespace observability stack for testing: OTel collector -> Tempo/Loki/Prometheus -> Grafana.
+# emptyDir storage (demo data is disposable). Kong exports OTLP to otel-collector:4317 (grpc) / :4318 (http).
+apiVersion: v1
+kind: ConfigMap
+metadata: {name: otel-collector-config, namespace: micron-aigw}
+data:
+  config.yaml: |
+    receivers:
+      otlp:
+        protocols: {grpc: {endpoint: 0.0.0.0:4317}, http: {endpoint: 0.0.0.0:4318}}
+    processors:
+      batch: {}
+    exporters:
+      otlp/tempo: {endpoint: "tempo:4317", tls: {insecure: true}}
+      otlphttp/loki: {endpoint: "http://loki:3100/otlp"}
+      prometheus: {endpoint: "0.0.0.0:8889"}
+    service:
+      pipelines:
+        traces: {receivers: [otlp], processors: [batch], exporters: [otlp/tempo]}
+        logs: {receivers: [otlp], processors: [batch], exporters: [otlphttp/loki]}
+        metrics: {receivers: [otlp], processors: [batch], exporters: [prometheus]}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: otel-collector, namespace: micron-aigw}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: otel-collector}}
+  template:
+    metadata: {labels: {app: otel-collector}}
+    spec:
+      containers:
+      - name: otel
+        image: otel/opentelemetry-collector-contrib:0.111.0
+        args: ["--config=/etc/otel/config.yaml"]
+        ports: [{containerPort: 4317}, {containerPort: 4318}, {containerPort: 8889}]
+        resources: {requests: {cpu: 20m, memory: 64Mi}, limits: {memory: 256Mi}}
+        volumeMounts: [{name: cfg, mountPath: /etc/otel}]
+      volumes: [{name: cfg, configMap: {name: otel-collector-config}}]
+---
+apiVersion: v1
+kind: Service
+metadata: {name: otel-collector, namespace: micron-aigw}
+spec:
+  selector: {app: otel-collector}
+  ports: [{name: grpc, port: 4317}, {name: http, port: 4318}, {name: prom, port: 8889}]
+---
+apiVersion: v1
+kind: ConfigMap
+metadata: {name: tempo-config, namespace: micron-aigw}
+data:
+  tempo.yaml: |
+    server: {http_listen_port: 3200}
+    distributor:
+      receivers:
+        otlp: {protocols: {grpc: {endpoint: "0.0.0.0:4317"}}}
+    compactor: {compaction: {block_retention: 24h}}
+    metrics_generator:
+      registry: {external_labels: {source: tempo}}
+      storage:
+        path: /var/tempo/generator
+        remote_write:
+        - {url: "http://prometheus:9090/api/v1/write", send_exemplars: true}
+      processor:
+        span_metrics:
+          dimensions: ["http.status_code", "http.route", "gen_ai.provider.name", "gen_ai.request.model", "enduser.id", "micron.error_source"]
+    overrides:
+      defaults:
+        metrics_generator:
+          processors: [span-metrics]
+    storage:
+      trace:
+        backend: local
+        wal: {path: /var/tempo/wal}
+        local: {path: /var/tempo/blocks}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: tempo, namespace: micron-aigw}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: tempo}}
+  template:
+    metadata: {labels: {app: tempo}}
+    spec:
+      containers:
+      - name: tempo
+        image: grafana/tempo:2.6.1
+        args: ["-config.file=/etc/tempo/tempo.yaml"]
+        ports: [{containerPort: 3200}, {containerPort: 4317}]
+        resources: {requests: {cpu: 30m, memory: 128Mi}, limits: {memory: 512Mi}}
+        volumeMounts: [{name: cfg, mountPath: /etc/tempo}, {name: data, mountPath: /var/tempo}]
+      volumes: [{name: cfg, configMap: {name: tempo-config}}, {name: data, emptyDir: {sizeLimit: 1Gi}}]
+---
+apiVersion: v1
+kind: Service
+metadata: {name: tempo, namespace: micron-aigw}
+spec:
+  selector: {app: tempo}
+  ports: [{name: http, port: 3200}, {name: otlp-grpc, port: 4317}]
+---
+apiVersion: v1
+kind: ConfigMap
+metadata: {name: loki-config, namespace: micron-aigw}
+data:
+  loki.yaml: |
+    auth_enabled: false
+    server: {http_listen_port: 3100}
+    common:
+      path_prefix: /loki
+      replication_factor: 1
+      ring: {kvstore: {store: inmemory}}
+      storage: {filesystem: {chunks_directory: /loki/chunks, rules_directory: /loki/rules}}
+    schema_config:
+      configs:
+      - {from: "2024-01-01", store: tsdb, object_store: filesystem, schema: v13, index: {prefix: index_, period: 24h}}
+    limits_config: {allow_structured_metadata: true, volume_enabled: true}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: loki, namespace: micron-aigw}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: loki}}
+  template:
+    metadata: {labels: {app: loki}}
+    spec:
+      containers:
+      - name: loki
+        image: grafana/loki:3.2.1
+        args: ["-config.file=/etc/loki/loki.yaml"]
+        ports: [{containerPort: 3100}]
+        resources: {requests: {cpu: 30m, memory: 128Mi}, limits: {memory: 512Mi}}
+        volumeMounts: [{name: cfg, mountPath: /etc/loki}, {name: data, mountPath: /loki}]
+      volumes: [{name: cfg, configMap: {name: loki-config}}, {name: data, emptyDir: {sizeLimit: 1Gi}}]
+---
+apiVersion: v1
+kind: Service
+metadata: {name: loki, namespace: micron-aigw}
+spec:
+  selector: {app: loki}
+  ports: [{name: http, port: 3100}]
+---
+apiVersion: v1
+kind: ConfigMap
+metadata: {name: prometheus-config, namespace: micron-aigw}
+data:
+  prometheus.yml: |
+    global: {scrape_interval: 15s}
+    scrape_configs:
+    - job_name: otel-collector
+      static_configs: [{targets: ["otel-collector:8889"]}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: prometheus, namespace: micron-aigw}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: prometheus}}
+  template:
+    metadata: {labels: {app: prometheus}}
+    spec:
+      containers:
+      - name: prometheus
+        image: prom/prometheus:v2.55.1
+        args: ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.retention.time=2d", "--storage.tsdb.path=/prometheus", "--web.enable-remote-write-receiver"]
+        ports: [{containerPort: 9090}]
+        resources: {requests: {cpu: 30m, memory: 128Mi}, limits: {memory: 512Mi}}
+        volumeMounts: [{name: cfg, mountPath: /etc/prometheus}, {name: data, mountPath: /prometheus}]
+      volumes: [{name: cfg, configMap: {name: prometheus-config}}, {name: data, emptyDir: {sizeLimit: 1Gi}}]
+---
+apiVersion: v1
+kind: Service
+metadata: {name: prometheus, namespace: micron-aigw}
+spec:
+  selector: {app: prometheus}
+  ports: [{name: http, port: 9090}]
+---
+apiVersion: v1
+kind: ConfigMap
+metadata: {name: grafana-provisioning, namespace: micron-aigw}
+data:
+  datasources.yaml: |
+    apiVersion: 1
+    datasources:
+    - {name: Prometheus, uid: prometheus, type: prometheus, access: proxy, url: "http://prometheus:9090", isDefault: true}
+    - name: Loki
+      uid: loki
+      type: loki
+      access: proxy
+      url: http://loki:3100
+      jsonData:
+        derivedFields:
+        - {name: trace_id, matcherRegex: "trace_id=(\\w+)", url: "$${__value.raw}", datasourceUid: tempo}
+    - name: Tempo
+      uid: tempo
+      type: tempo
+      access: proxy
+      url: http://tempo:3200
+      jsonData:
+        tracesToLogsV2: {datasourceUid: loki, filterByTraceID: true}
+  dashboards.yaml: |
+    apiVersion: 1
+    providers:
+    - {name: micron, folder: Micron, type: file, options: {path: /var/lib/grafana/dashboards}}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: grafana, namespace: micron-aigw}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: grafana}}
+  template:
+    metadata: {labels: {app: grafana}}
+    spec:
+      containers:
+      - name: grafana
+        image: grafana/grafana:11.3.0
+        ports: [{containerPort: 3000}]
+        env:
+        - {name: GF_SECURITY_ADMIN_USER, value: admin}
+        - name: GF_SECURITY_ADMIN_PASSWORD
+          valueFrom: {secretKeyRef: {name: micron-secrets, key: GRAFANA_ADMIN_PASSWORD}}
+        - {name: GF_SERVER_ROOT_URL, value: "https://micron-grafana.kong-sales-engineering.com"}
+        - {name: GF_USERS_ALLOW_SIGN_UP, value: "false"}
+        resources: {requests: {cpu: 30m, memory: 128Mi}, limits: {memory: 512Mi}}
+        readinessProbe: {httpGet: {path: /api/health, port: 3000}}
+        volumeMounts:
+        - {name: prov, mountPath: /etc/grafana/provisioning/datasources/datasources.yaml, subPath: datasources.yaml}
+        - {name: prov, mountPath: /etc/grafana/provisioning/dashboards/dashboards.yaml, subPath: dashboards.yaml}
+        - {name: dashboards, mountPath: /var/lib/grafana/dashboards}
+      volumes:
+      - {name: prov, configMap: {name: grafana-provisioning}}
+      - {name: dashboards, configMap: {name: grafana-dashboards, optional: true}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: micron-aigw
+  annotations: {cloud.google.com/neg: '{"ingress": true}'}
+spec:
+  selector: {app: grafana}
+  ports: [{name: http, port: 3000}]

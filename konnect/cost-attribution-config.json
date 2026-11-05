@@ -1,0 +1,15 @@
+{
+  "mappings": [
+    { "tag": "department", "source": "claim", "name": "groups", "match": "^(Demo-.*)$",
+      "lookup": { "Demo-Engineering": "Product Development", "Demo-DataScience": "Product Development", "Demo-Finance": "Finance" }, "default": "unassigned" },
+    { "tag": "team", "source": "claim", "name": "groups", "match": "^(Demo-.*)$",
+      "lookup": { "Demo-Engineering": "Engineering", "Demo-DataScience": "Data Science", "Demo-Finance": "Finance" }, "default": "unassigned" },
+    { "tag": "person", "source": "claim", "name": "email", "default": "unknown" },
+    { "tag": "agent", "source": "claim", "name": "agent", "default": "none" },
+    { "tag": "environment", "source": "static", "value": "micron-demo" }
+  ],
+  "passthrough_header_prefix": "ai-cost-",
+  "identity_tags_win": true,
+  "strip_passthrough_headers": true,
+  "presets": ["claude_code"]
+}

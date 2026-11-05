@@ -1,0 +1,81 @@
+<title>Micron Demo Test Matrix</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root{--bg:#f6f7f4;--fg:#1c2420;--mute:#5d6a63;--card:#fff;--line:#d9dfd9;--accent:#0b6e4f;--accent-fg:#fff;--code:#e9efe9;--ok:#0b6e4f;--okbg:#dff1e8;--warn:#8a5a00;--warnbg:#fbeccb;--todo:#4a4f8a;--todobg:#e4e5f8;--bad:#9b2c2c;--badbg:#f8dcdc}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1512;--fg:#e4ebe6;--mute:#93a39a;--card:#171f1b;--line:#2b3731;--accent:#4fd1a1;--accent-fg:#06231a;--code:#223029;--ok:#6fe0b0;--okbg:#14382b;--warn:#f0c26a;--warnbg:#3a2d0e;--todo:#aab0ff;--todobg:#25284d;--bad:#ff9a9a;--badbg:#4a1d1d;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0f1512;--fg:#e4ebe6;--mute:#93a39a;--card:#171f1b;--line:#2b3731;--accent:#4fd1a1;--accent-fg:#06231a;--code:#223029;--ok:#6fe0b0;--okbg:#14382b;--warn:#f0c26a;--warnbg:#3a2d0e;--todo:#aab0ff;--todobg:#25284d;--bad:#ff9a9a;--badbg:#4a1d1d;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font:15px/1.5 "Public Sans",system-ui,sans-serif;padding-inline:16px;padding-block:24px}
+.wrap{max-width:1280px;margin:0 auto;display:flex;flex-direction:column;gap:24px}
+h1{font-size:clamp(1.6rem,4vw,2.2rem);margin:0;text-wrap:balance;letter-spacing:-.01em}
+h2{font-size:1.05rem;margin:0 0 8px}
+p{margin:0;max-width:70ch}.mute{color:var(--mute)}
+code{font:500 .85em "JetBrains Mono",ui-monospace,monospace;background:var(--code);padding:1px 5px;border-radius:4px;overflow-wrap:anywhere}
+.top{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.box{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;min-width:0}
+.box table{width:100%;border-collapse:collapse;font-size:.9rem}.box td,.box th{padding:5px 8px 5px 0;text-align:left;vertical-align:top;border-bottom:1px solid var(--line)}
+.box th{font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:var(--mute)}
+.box ul{margin:0;padding-left:18px;font-size:.9rem}
+.stats{display:flex;gap:8px;flex-wrap:wrap}
+.pill{display:inline-block;font-size:.74rem;font-weight:600;padding:2px 9px;border-radius:99px;white-space:nowrap}
+.pill.ok{background:var(--okbg);color:var(--ok)}.pill.warn{background:var(--warnbg);color:var(--warn)}.pill.todo{background:var(--todobg);color:var(--todo)}.pill.bad{background:var(--badbg);color:var(--bad)}
+.filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.chip{font:600 .8rem "Public Sans",sans-serif;border:1px solid var(--line);background:var(--card);color:var(--fg);padding:6px 12px;border-radius:99px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+input[type=search]{font:inherit;padding:7px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--fg);min-width:0;flex:1 1 220px}
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--card)}
+table.m{border-collapse:collapse;min-width:1500px;width:100%;font-size:.86rem}
+.m th{position:sticky;top:0;background:var(--card);text-align:left;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);padding:10px;border-bottom:2px solid var(--line)}
+.m td{padding:10px;vertical-align:top;border-bottom:1px solid var(--line)}
+.m td.id{font:600 .8rem "JetBrains Mono",monospace;color:var(--accent);white-space:nowrap}
+.m ol{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:3px}
+.m em{font-style:italic;color:var(--mute)}
+.m tr[hidden]{display:none}
+.m td.cl{background:var(--okbg)}.setup{margin-top:4px;color:var(--mute)}.prompt{margin:6px 0;padding:6px 8px;border-left:3px solid var(--accent);background:var(--code);border-radius:4px;overflow-wrap:anywhere}.res{color:var(--ok);font-weight:600}.no{color:var(--mute)}
+.empty{padding:24px;color:var(--mute)}
+</style>
+<div class="wrap">
+<header><p class="mute" style="font-weight:600;letter-spacing:.08em;text-transform:uppercase;font-size:.75rem">Kong AI Gateway · Micron demo</p>
+<h1>Test matrix: every case, who to be, which model, where to look</h1>
+<p class="mute" style="margin-top:8px">{{N_ALL}} cases across the eight sections of the brief. Filter by section or search. Run <code>./reset-demo.sh</code> then <code>demo/preflight.sh</code> before a session.</p></header>
+
+<div class="stats"><span class="pill ok">{{N_AUTO}} automated, passing</span><span class="pill warn">{{N_SCRIPT}} scripted, checked by hand</span><span class="pill todo">{{N_TODO}} need a person</span><span class="pill bad">{{N_GAP}} gap, documented</span></div>
+
+<div class="top">
+<div class="box"><h2>Who to sign in as</h2>
+<table><tr><th>User</th><th>Group</th><th>Route</th></tr>
+<tr><td><strong>User A</strong> <code>micron-usera@kong-sales-engineering.com</code></td><td>Engineering</td><td><code>/anthropic</code></td></tr>
+<tr><td><strong>User B</strong> <code>micron-userb@…</code></td><td>Finance</td><td><code>/anthropic</code></td></tr>
+<tr><td><strong>User C</strong> <code>micron-userc@…</code></td><td>Data Science (sandbox, $2/day)</td><td><code>/sandbox/anthropic</code></td></tr>
+<tr><td><strong>User D</strong> <code>micron-userd@…</code></td><td>Engineering</td><td><code>/anthropic</code></td></tr></table>
+<p class="mute" style="margin-top:8px;font-size:.85rem">Password: <code>DEMO_USER_PASSWORD</code> in <code>secrets.yaml</code>. Use a separate browser profile per user.</p></div>
+<div class="box"><h2>Which model</h2><ul>
+<li>Picker names: Haiku 5.5, Sonnet 5.5, Opus 5.5 (Engineering only).</li>
+<li>Clients that send older dated names still work; the gateway maps them.</li>
+<li><code>claude-auto</code> and <code>claude-sonnet-split</code> are for Insomnia or <code>ANTHROPIC_MODEL</code>, not the Desktop picker.</li>
+<li>GPT-4o only exists after <code>demo/add-foundry.sh add</code>.</li></ul></div>
+<div class="box"><h2>Client settings</h2><ul>
+<li>Claude Code: <code>clients/claude-code/run.sh usera</code></li>
+<li>Desktop: run <code>clients/desktop-settings.sh</code> and use its issuer and client ID. Not the workshop values.</li>
+<li>Base URL <code>https://micron.kong-sales-engineering.com/anthropic</code>; User C uses <code>…/sandbox/anthropic</code>.</li>
+<li>Insomnia: import <code>insomnia/</code>, run <em>00 Get tokens</em> first (tokens last 5 minutes).</li>
+<li>Green column: do it in Claude. Insomnia is always there as the backup.</li>
+<li>Results: Grafana <code>micron-grafana.kong-sales-engineering.com</code>, feed <code>micron-agents…/notifications</code>.</li></ul></div>
+</div>
+
+<div class="filters" role="group" aria-label="Filter by section">{{CHIPS}}<input type="search" id="q" placeholder="Search cases, users, models" aria-label="Search"></div>
+
+<div class="scroll"><table class="m"><thead><tr><th>#</th><th>Case</th><th>Log in as</th><th>Model</th><th>Do it in Claude</th><th>Insomnia and terminal</th><th>Expected</th><th>Where to see it</th><th>Status</th></tr></thead>
+<tbody id="rows">
+{{ROWS}}
+</tbody></table><div class="empty" id="none" hidden>No cases match.</div></div>
+<p class="mute" style="font-size:.85rem">Status is honest: "automated" means the case passes in the repo's test suite; "needs a person" means I have not driven the Claude Desktop app or a long interactive session myself. Reset between runs: <code>./reset-demo.sh</code>.</p>
+</div>
+<script>
+(function(){
+var sec="all",q="",rows=[].slice.call(document.querySelectorAll("#rows tr")),chips=[].slice.call(document.querySelectorAll(".chip"));
+function apply(){var n=0;rows.forEach(function(r){var ok=(sec==="all"||r.dataset.sec===sec)&&(!q||r.textContent.toLowerCase().indexOf(q)>-1);r.hidden=!ok;if(ok)n++});document.getElementById("none").hidden=n>0}
+chips.forEach(function(c){c.addEventListener("click",function(){sec=c.dataset.f;chips.forEach(function(x){x.setAttribute("aria-pressed",x===c?"true":"false")});apply()})});
+document.getElementById("q").addEventListener("input",function(e){q=e.target.value.toLowerCase();apply()});
+})();
+</script>

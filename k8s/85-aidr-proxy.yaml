@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: aidr-proxy, namespace: micron-aigw}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: aidr-proxy}}
+  template:
+    metadata: {labels: {app: aidr-proxy}}
+    spec:
+      containers:
+      - name: proxy
+        image: python:3.12-slim
+        command: ["python", "/app/app.py"]
+        env:
+        - {name: AIDR_URL, valueFrom: {secretKeyRef: {name: micron-secrets, key: CROWDSTRIKE_AIDR_URL}}}
+        - {name: AIDR_KEY, valueFrom: {secretKeyRef: {name: micron-secrets, key: CROWDSTRIKE_API_KEY}}}
+        ports: [{containerPort: 8080}]
+        resources: {requests: {cpu: 10m, memory: 48Mi}, limits: {memory: 192Mi}}
+        volumeMounts: [{name: app, mountPath: /app}]
+      volumes: [{name: app, configMap: {name: aidr-proxy-app}}]
+---
+apiVersion: v1
+kind: Service
+metadata: {name: aidr-proxy, namespace: micron-aigw}
+spec:
+  selector: {app: aidr-proxy}
+  ports: [{name: http, port: 80, targetPort: 8080}]

@@ -1,0 +1,78 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: mcp-ticketing, namespace: micron-aigw}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: mcp-ticketing}}
+  template:
+    metadata: {labels: {app: mcp-ticketing}}
+    spec:
+      containers:
+      - name: mcp
+        image: python:3.12-slim
+        command: ["sh", "-c", "pip install -q 'mcp>=1.9,<2' && python /app/server.py"]
+        env: [{name: SERVER, value: ticketing}]
+        ports: [{containerPort: 8080}]
+        resources: {requests: {cpu: 20m, memory: 96Mi}, limits: {memory: 256Mi}}
+        volumeMounts: [{name: app, mountPath: /app}]
+      volumes: [{name: app, configMap: {name: mcp-app}}]
+---
+apiVersion: v1
+kind: Service
+metadata: {name: mcp-ticketing, namespace: micron-aigw}
+spec:
+  selector: {app: mcp-ticketing}
+  ports: [{name: http, port: 80, targetPort: 8080}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: mcp-code-search, namespace: micron-aigw}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: mcp-code-search}}
+  template:
+    metadata: {labels: {app: mcp-code-search}}
+    spec:
+      containers:
+      - name: mcp
+        image: python:3.12-slim
+        command: ["sh", "-c", "pip install -q 'mcp>=1.9,<2' && python /app/server.py"]
+        env: [{name: SERVER, value: code-search}]
+        ports: [{containerPort: 8080}]
+        resources: {requests: {cpu: 20m, memory: 96Mi}, limits: {memory: 256Mi}}
+        volumeMounts: [{name: app, mountPath: /app}]
+      volumes: [{name: app, configMap: {name: mcp-app}}]
+---
+apiVersion: v1
+kind: Service
+metadata: {name: mcp-code-search, namespace: micron-aigw}
+spec:
+  selector: {app: mcp-code-search}
+  ports: [{name: http, port: 80, targetPort: 8080}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: mcp-hr-records, namespace: micron-aigw}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: mcp-hr-records}}
+  template:
+    metadata: {labels: {app: mcp-hr-records}}
+    spec:
+      containers:
+      - name: mcp
+        image: python:3.12-slim
+        command: ["sh", "-c", "pip install -q 'mcp>=1.9,<2' && python /app/server.py"]
+        env: [{name: SERVER, value: hr-records}]
+        ports: [{containerPort: 8080}]
+        resources: {requests: {cpu: 20m, memory: 96Mi}, limits: {memory: 256Mi}}
+        volumeMounts: [{name: app, mountPath: /app}]
+      volumes: [{name: app, configMap: {name: mcp-app}}]
+---
+apiVersion: v1
+kind: Service
+metadata: {name: mcp-hr-records, namespace: micron-aigw}
+spec:
+  selector: {app: mcp-hr-records}
+  ports: [{name: http, port: 80, targetPort: 8080}]

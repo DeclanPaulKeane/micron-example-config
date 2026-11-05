@@ -1,0 +1,12 @@
+{
+  "budgets": [
+    {"policy": 1, "name": "Product Development (monthly)", "limit": 2000, "window": 2592000},
+    {"policy": 2, "name": "Finance (monthly)", "limit": 500, "window": 2592000},
+    {"policy": 3, "name": "User C (daily)", "limit": 2, "window": 86400},
+    {"policy": 4, "name": "Ticket Triage Agent (daily)", "limit": 5, "window": 86400},
+    {"policy": 5, "name": "Release Notes Agent (daily)", "limit": 5, "window": 86400}
+  ],
+  "watch_only": [
+    {"name": "Data Science team (daily, watch-only)", "tag": "team", "value": "Data Science", "limit": 1.0}
+  ]
+}

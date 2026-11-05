@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: agent-triage, namespace: micron-aigw}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: agent-triage}}
+  template:
+    metadata: {labels: {app: agent-triage}}
+    spec:
+      containers:
+      - name: agent
+        image: python:3.12-slim
+        command: ["python", "/app/agent.py"]
+        env:
+        - {name: AGENT, value: triage}
+        - {name: ISSUER, value: "https://integrator-1741022.okta.com/oauth2/aus192p1rv23ZeQf7698"}
+        - {name: AUDIENCE, value: "https://micron.kong-sales-engineering.com"}
+        - {name: PUBLIC_URL, value: "https://micron.kong-sales-engineering.com/agents/ticket-triage-agent/"}
+        - {name: CLIENT_ID, valueFrom: {secretKeyRef: {name: micron-secrets, key: OKTA_AGENT_TRIAGE_CLIENT_ID}}}
+        - {name: CLIENT_SECRET, valueFrom: {secretKeyRef: {name: micron-secrets, key: OKTA_AGENT_TRIAGE_CLIENT_SECRET}}}
+        ports: [{containerPort: 8080}]
+        resources: {requests: {cpu: 10m, memory: 48Mi}, limits: {memory: 192Mi}}
+        readinessProbe: {httpGet: {path: /healthz, port: 8080}, initialDelaySeconds: 3}
+        volumeMounts: [{name: app, mountPath: /app}]
+      volumes: [{name: app, configMap: {name: agents-app}}]
+---
+apiVersion: v1
+kind: Service
+metadata: {name: agent-triage, namespace: micron-aigw}
+spec:
+  selector: {app: agent-triage}
+  ports: [{name: http, port: 80, targetPort: 8080}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: agent-release, namespace: micron-aigw}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: agent-release}}
+  template:
+    metadata: {labels: {app: agent-release}}
+    spec:
+      containers:
+      - name: agent
+        image: python:3.12-slim
+        command: ["python", "/app/agent.py"]
+        env:
+        - {name: AGENT, value: release}
+        - {name: ISSUER, value: "https://integrator-1741022.okta.com/oauth2/aus192p1rv23ZeQf7698"}
+        - {name: AUDIENCE, value: "https://micron.kong-sales-engineering.com"}
+        - {name: PUBLIC_URL, value: "https://micron.kong-sales-engineering.com/agents/release-notes-agent/"}
+        - {name: CLIENT_ID, valueFrom: {secretKeyRef: {name: micron-secrets, key: OKTA_AGENT_RELEASE_CLIENT_ID}}}
+        - {name: CLIENT_SECRET, valueFrom: {secretKeyRef: {name: micron-secrets, key: OKTA_AGENT_RELEASE_CLIENT_SECRET}}}
+        ports: [{containerPort: 8080}]
+        resources: {requests: {cpu: 10m, memory: 48Mi}, limits: {memory: 192Mi}}
+        readinessProbe: {httpGet: {path: /healthz, port: 8080}, initialDelaySeconds: 3}
+        volumeMounts: [{name: app, mountPath: /app}]
+      volumes: [{name: app, configMap: {name: agents-app}}]
+---
+apiVersion: v1
+kind: Service
+metadata: {name: agent-release, namespace: micron-aigw}
+spec:
+  selector: {app: agent-release}
+  ports: [{name: http, port: 80, targetPort: 8080}]

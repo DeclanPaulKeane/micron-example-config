@@ -1,0 +1,11 @@
+_defaults:
+  kongctl:
+    namespace: micron-aigw
+
+ai_gateways:
+- ref: micron-aigw
+  name: micron-aigw
+  display_name: "Micron AI Gateway"
+  description: "Micron AI Gateway evaluation demo"
+  labels:
+    customer: micron

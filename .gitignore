@@ -1,0 +1,8 @@
+secrets.yaml
+.env
+*.pem
+*.key
+.state/
+insomnia/*.insomnia.json
+insomnia/micron-env.json
+data/large/

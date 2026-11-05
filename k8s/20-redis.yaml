@@ -1,0 +1,26 @@
+# Redis Stack: shared rate-limit counters (all pods), semantic-cache vector store, RAG index.
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: redis, namespace: micron-aigw}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: redis}}
+  template:
+    metadata: {labels: {app: redis}}
+    spec:
+      containers:
+      - name: redis
+        image: redis/redis-stack-server:7.4.0-v1
+        env:
+        - name: REDIS_PASSWORD
+          valueFrom: {secretKeyRef: {name: micron-secrets, key: REDIS_PASSWORD}}
+        - {name: REDIS_ARGS, value: "--requirepass $(REDIS_PASSWORD) --save ''"}
+        ports: [{containerPort: 6379}]
+        resources: {requests: {cpu: 30m, memory: 128Mi}, limits: {memory: 768Mi}}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: redis, namespace: micron-aigw}
+spec:
+  selector: {app: redis}
+  ports: [{name: redis, port: 6379}]

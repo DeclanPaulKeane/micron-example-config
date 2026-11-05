@@ -1,0 +1,46 @@
+# One GCE ingress + Google-managed cert for all three hostnames (zone CAA only permits pki.goog/sectigo).
+# Backends are added as they come up (gateway service aigw-dp: k8s/40-*, agents: Phase 4).
+apiVersion: networking.gke.io/v1
+kind: ManagedCertificate
+metadata: {name: micron-cert, namespace: micron-aigw}
+spec:
+  domains:
+  - micron.kong-sales-engineering.com
+  - micron-grafana.kong-sales-engineering.com
+  - micron-agents.kong-sales-engineering.com
+---
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata: {name: long-streams, namespace: micron-aigw}
+spec:
+  timeoutSec: 3600          # long Claude Code streams
+  connectionDraining: {drainingTimeoutSec: 60}
+---
+apiVersion: networking.gke.io/v1beta1
+kind: FrontendConfig
+metadata: {name: https-redirect, namespace: micron-aigw}
+spec:
+  redirectToHttps: {enabled: true}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: micron-ingress
+  namespace: micron-aigw
+  annotations:
+    networking.gke.io/managed-certificates: micron-cert
+    networking.gke.io/v1beta1.FrontendConfig: https-redirect
+spec:
+  rules:
+  - host: micron-grafana.kong-sales-engineering.com
+    http:
+      paths:
+      - {path: /*, pathType: ImplementationSpecific, backend: {service: {name: grafana, port: {number: 3000}}}}
+  - host: micron.kong-sales-engineering.com
+    http:
+      paths:
+      - {path: /*, pathType: ImplementationSpecific, backend: {service: {name: aigw-dp, port: {number: 80}}}}
+  - host: micron-agents.kong-sales-engineering.com
+    http:
+      paths:
+      - {path: /*, pathType: ImplementationSpecific, backend: {service: {name: budget-watcher, port: {number: 80}}}}
